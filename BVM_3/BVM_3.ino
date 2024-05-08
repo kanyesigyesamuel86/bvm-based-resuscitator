@@ -51,13 +51,25 @@ int k = 0;
 int step_limit=20;
 int p_time=800;
 int t_lock=0;
+int patient = 0;
 int volume=100;
 int rate = 40;
+int terminate=0;
 
 int list_position = 0;
 int value=0;
 int vol_display[] = {0, 0 , 0};
 int rate_display[] = {2, 0};
+int pulse = 0;
+int prev_subroutine = 0;
+String d_value[] = {"DEFAULT MODE", "ALARMS", "SP02 LEVEL", "PRESSURE", "RESET ALL"} ;
+String sensors[] = {"OXIMETER", "LDR", "PRESSURE SENSOR", "BUZZER", "LED"};
+int totalItems = sizeof(sensors) / sizeof(sensors[0]);
+int index = 0;
+
+// Variables to track the current position in the menu list
+int currentTopItem = 0;
+int visibleItems = 3; 
 
 
 void setup() {
@@ -126,12 +138,12 @@ count_1++;
 if(count_1==1){
 go=1;
 }
-if(count_1==800){
+if(count_1==2000){
 go=0;
 d_lock==0;
 }
 
-if(count_1==900){
+if(count_1==5000){
 count_1=0;
 }
 
@@ -146,10 +158,10 @@ if(power_off==1){                                     //   POWER OFF MENU.
 
   if(go==1 and t_lock==0){
   t_lock=1;
-  lcd.setCursor(0, 0);
+  lcd.setCursor(0, 1);
   lcd.print("  TURN OFF SYSTEM   ");  
   }
-  if(go==0 and d_lock==1){
+  if(go==0 and t_lock==1){
   t_lock=0;
   lcd.setCursor(0, 0);
   lcd.print("                    ");  
@@ -298,10 +310,115 @@ if(subroutine==1){                                    //   OPERATION MODE OPTION
  
 if(subroutine==2){                                    //   FREE
   //PUT CODE HERE. 
+  if(k_busy==0){
+    if(key==1){
+      value++;
+      d_lock= 0;
+      lcd.clear();
+
+    }
+    if(value==4){
+      value=0;
+    }
+    if(key==2){
+      transition=1;
+      k_busy=1;
+      s_busy=1;
+      lcd.clear();
+      if(value==0){
+        subroutine= 13;
+      }
+      if(value==1){
+        subroutine=14;
+      }
+      if(value==2){
+        subroutine=15;
+      }
+      if(value==3){
+        subroutine=16;
+      }
+      if(value==4){
+        subroutine=17;
+      }
+
+    }
+    if(key==3){
+     transition=1;
+     k_busy=1;
+     s_busy=1;
+     lcd.clear();
+     subroutine=0;
+
+    }
+  }
+  if(s_busy==0){
+    if(d_lock==0){
+      d_lock=1;
+      lcd.setCursor(4, 1);
+      for(int i= 0; i<5; i++){
+        if(value==i){
+          lcd.print(d_value[i]);
+        }
+      }
+      lcd.setCursor(0, 3);
+      lcd.print("SELECT  ENTER  BACK");
+    }
+
+  }
 }
 
-if(subroutine==3){                                    //   FREE
-   // PUT CODE HERE. 
+if(subroutine==3){                                    
+  if(k_busy==0){
+    if(key==1){
+      value++;
+      d_lock=0;
+      lcd.clear();
+    }
+    if(value==2){
+      value=0;
+    }
+
+    if(key==2){
+      transition=1;
+      s_busy=1;
+      k_busy=1;
+      lcd.clear();
+      if(value==0){
+        subroutine=18;
+      }
+      if(value==1){
+        subroutine=19;
+      }
+    }
+
+    if(key==3){
+      transition=1;
+      s_busy=1;
+      k_busy=1;
+      lcd.clear();
+      subroutine=0;
+    }
+
+  }
+  if(s_busy==0){
+    if(d_lock==0){
+      d_lock=1;
+      if(value==0){
+        lcd.setCursor(0, 0);
+        lcd.print("--> MOTOR");
+        lcd.setCursor(0, 1);
+        lcd.print("    SENSORS");
+      }
+      if(value==1){
+        lcd.setCursor(0, 0);
+        lcd.print("    MOTOR");
+        lcd.setCursor(0, 1);
+        lcd.print("--> SENSORS");
+      }
+      lcd.setCursor(0, 3);
+      lcd.print("SELECT  ENTER   BACK");
+    }
+  }
 }
 
 if(subroutine==4){                                    //   SELECTING PATIENT FOR SELF DRIVEN MODE.
@@ -313,9 +430,11 @@ if(subroutine==4){                                    //   SELECTING PATIENT FOR
   transition=1;
   lcd.clear();
   subroutine=6;
+  patient = 0;
   volume=100;
-  step_limit=25;
-  p_time=500;              
+  step_limit=15;
+  p_time=500;    
+
   }  
 
   if(key==2){
@@ -324,8 +443,9 @@ if(subroutine==4){                                    //   SELECTING PATIENT FOR
   transition=1;
   lcd.clear();
   subroutine=6;
+  patient= 1;
   volume=200;
-  step_limit=30;
+  step_limit=20;
   p_time=800;
   }
 
@@ -349,8 +469,9 @@ if(subroutine==4){                                    //   SELECTING PATIENT FOR
  }
 }
 
-if(subroutine==5){                                    //   FREE
-   // PUT CODE HERE. 
+//self driven mode
+if(subroutine==5){                                   
+
   if(k_busy==0){       //   KEY ASSIGNMENT
               
     if(key==1){        
@@ -359,6 +480,7 @@ if(subroutine==5){                                    //   FREE
     transition=1;
     lcd.clear();
     subroutine=8;
+    patient= 0;
     volume=100;
     rate = 40;
     step_limit=25;
@@ -371,6 +493,7 @@ if(subroutine==5){                                    //   FREE
     transition=1;
     lcd.clear();
     subroutine=8;
+    patient=1;
     volume=200;
     rate = 25;
     step_limit=30;
@@ -397,11 +520,13 @@ if(subroutine==5){                                    //   FREE
   }
 }
 
-if(subroutine==6){                                    //   START WINDOW FOR FOR SELF DRIVEN MODE.
+if(subroutine==6){                                    //   START WINDOW FOR FOR PATIENT DRIVEN MODE.
  if(k_busy==0){                  //   KEY ASSIGNMENT
   if(key==2){
   transition=1;
-  subroutine=7;
+  if(digitalRead(breath_pulse)==1){
+    subroutine=7;
+  }
   s_busy=1;
   k_busy=1;
   drive_enable=1;
@@ -410,19 +535,45 @@ if(subroutine==6){                                    //   START WINDOW FOR FOR 
   lcd.clear();
   delay(200);
   d_lock=1;
-  if(volume==200){
-  lcd.setCursor(0, 0);
-  lcd.print("RESUSCITATING_ ADULT");
+  if(digitalRead(breath_pulse)==0){
+    lcd.setCursor(0, 1);
+    lcd.print(" AWAITING A PULSE... ");
+    lcd.setCursor(0, 3);
+    lcd.print("                BACK");
   }
-  if(volume==100){
-  lcd.setCursor(0, 0);
-  lcd.print("RESUSCITATING_ CHILD");
+  if(digitalRead(breath_pulse)==1){
+      if(patient=="patient"){
+      lcd.setCursor(0, 0);
+      lcd.print("RESUSCITATING_ ADULT");
+      }
+      if(patient=="child"){
+      lcd.setCursor(0, 0);
+      lcd.print("RESUSCITATING_ CHILD");
+      }
+      lcd.setCursor(0, 1);
+      lcd.print("VOLUME: " + String(volume) + "mL");
+      lcd.setCursor(0, 3);
+      lcd.print("        STOP        ");
+      }
+
   }
-  lcd.setCursor(0, 1);
-  lcd.print("VOLUME: " + String(volume) + "mL");
-  lcd.setCursor(0, 3);
-  lcd.print("        STOP        ");
+
+  if(key==1){
+    transition=1;
+    s_busy=1;
+    k_busy=1;
+    subroutine=10;
+    prev_subroutine=6;
+    lcd.clear();
+    delay(200);
+    d_lock=1;
+    lcd.setCursor(0, 0);
+    lcd.print("  ADJUST SETTINGS   ");
+    lcd.setCursor(0, 3);
+    lcd.print("VOLUME          DONE");
+
   }
+
 
   if(key==3){
   s_busy=1;
@@ -432,25 +583,25 @@ if(subroutine==6){                                    //   START WINDOW FOR FOR 
   subroutine=4;
   }
  }
- if(s_busy==0){       //   MESSAGE TO DISPLAY
+ if(s_busy==0 and drive_enable==0){       //   MESSAGE TO DISPLAY
     if(d_lock==0){
     d_lock=1;
-    if(volume==200){
+    s_lock=1;
     lcd.setCursor(0, 0);
-    lcd.print("ADULT.     VOL=200ml");
+    if(patient==0){
+      lcd.print( "CHILD     VOL=" + String(volume) + " ml");
     }
-    if(volume==100){
-    lcd.setCursor(0, 0);
-    lcd.print("CHILD.     VOL=100ml");
-    }    
+    if(patient==1){
+      lcd.print( "ADULT     VOL=" + String(volume) + " ml");
+    }
     lcd.setCursor(0, 3);
-    lcd.print("VOLUME   RUN    BACK");
-    }
+    lcd.print("VOLUME   RUN   BACK");
+    }   
 
   }
 }
 
-if(subroutine==7){                                    //   MOTOR DRIVING FOR SELF DRIVEN MODE.
+if(subroutine==7){                                    //   MOTOR DRIVING FOR PATIENT DRIVEN MODE.
  while(drive_enable==1 and k_busy==0){
 
   if(analogRead(A5)>0 and lock_1==0){
@@ -511,7 +662,7 @@ if(subroutine==7){                                    //   MOTOR DRIVING FOR SEL
      if(count_k==2){
      digitalWrite(forward_drive,1);
      }
-     if(count_k==8){
+     if(count_k==12){
      digitalWrite(forward_drive,0);
      }
      if(count_k > 15){
@@ -561,6 +712,7 @@ if(subroutine==8){                                    //   START WINDOW FOR FOR 
     s_busy=1;
     k_busy=1;
     subroutine=10;
+    prev_subroutine=8;
     lcd.clear();
     delay(200);
     d_lock=1;
@@ -619,7 +771,7 @@ if(subroutine==8){                                    //   START WINDOW FOR FOR 
 if(subroutine==9){                                    //   MOTOR DRIVING FOR SELF DRIVEN MODE.
  while(drive_enable==1 and k_busy==0){
 
-  if(analogRead(A5)>0 and lock_1==0){
+ if(analogRead(A5)>0 and lock_1==0){
   lock_1=1;
   keys();
   }
@@ -627,7 +779,7 @@ if(subroutine==9){                                    //   MOTOR DRIVING FOR SEL
   if(analogRead(A5)==0 and lock_1==1){
   lock_1=0;  
   d_lock=0;
-  }
+  } 
 
   digitalWrite(forward_drive,0);
   digitalWrite(backward_drive,0);
@@ -638,10 +790,10 @@ if(subroutine==9){                                    //   MOTOR DRIVING FOR SEL
      if(count_k==2){
      digitalWrite(backward_drive,1);
      }
-     if(count_k==8){
+     if(count_k==3){
      digitalWrite(backward_drive,0);
      }
-     if(count_k > 15){
+     if(count_k > 5){
      count_k=0;
      }
 
@@ -703,21 +855,50 @@ if(subroutine==9){                                    //   MOTOR DRIVING FOR SEL
 
     
     }
-    
 
-
-    if(key==2){                                       //   LOOP TERMINATOR.
-      drive_enable=0;
+    // terminate resuscitation
+    if(key==2){
+      terminate=1;
+      transition=1;
       s_busy=1;
       k_busy=1;
-      transition=1;
       lcd.clear();
-      forward=0;
-      backward=0;
-      subroutine=8;
     } 
-    
  }
+  //confirm terminating
+  if(terminate==1){ 
+    if(k_busy==0){
+      if(key==3){                                       
+        drive_enable=0;
+        s_busy=1;
+        k_busy=1;
+        transition=1;
+        lcd.clear();
+        forward=0;
+        backward=0;
+        subroutine=8;
+        terminate=0;
+      }
+      if(key==1){
+        s_busy=1;
+        k_busy=1;
+        transition=1;
+        lcd.clear();
+        terminate=0;
+      } 
+
+    }
+    if(s_busy==0){
+      if(d_lock==0){
+        d_lock=1;
+        s_busy=1;
+        lcd.setCursor(0, 1);
+        lcd.print("    CONFIRM STOP    ");
+        lcd.setCursor(0, 3);
+        lcd.print("NO               YES");
+      }
+    }
+  }
 }
 
 if(subroutine==10){
@@ -728,7 +909,7 @@ if(subroutine==10){
       transition=1;
       lcd.clear();
     }
-    if(key==2){
+    if(key==2 and prev_subroutine==8){
       k_busy=1;
       s_busy=1;
       subroutine= 12;
@@ -741,7 +922,7 @@ if(subroutine==10){
       k_busy=1;
       transition=1;
       lcd.clear();
-      subroutine=8;
+      subroutine=prev_subroutine;
     }
   }
 }
@@ -777,7 +958,7 @@ if(subroutine== 11){
       s_busy=1;
       transition=1;
       lcd.clear();
-      subroutine=8;
+      subroutine=prev_subroutine;
 
     }
 
@@ -858,6 +1039,100 @@ if(subroutine== 12){
 
   }
 
+}
+
+
+//test motor
+
+if(subroutine==18){
+  if(k_busy==0){
+    if(key==3){
+      key=1;
+    }
+    if(key==1){
+      digitalWrite(backward_drive,1);  
+      delay(500);  
+      digitalWrite(backward_drive,0); 
+      digitalWrite(forward_drive,1);  
+      delay(500); 
+      digitalWrite(forward_drive,0); 
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.clear();
+    }
+    if(key==2){
+      k_busy=1;
+      s_busy=1;
+      transition=1;
+      subroutine=3;
+      lcd.clear();
+
+    }
+  }
+  if(s_busy==0){
+    if(d_lock==0){
+      d_lock==1;
+      lcd.setCursor(0, 1);
+      lcd.print("     MOTOR TEST     ");
+      lcd.setCursor(0, 3);
+      lcd.print("<--     BACK     -->");
+    }
+  }
+}
+
+//test sensors
+if(subroutine==19){
+
+  if(k_busy==0){
+
+  if (key==1) {
+    currentTopItem++;
+    if (currentTopItem > totalItems-1){
+      currentTopItem = 0;
+    }
+    lcd.clear();
+  } 
+
+  if(key==2){
+    transition=1;
+    s_busy=1;
+    k_busy=1;
+    d_lock= 1;
+    lcd.clear();
+    lcd.setCursor(4, 1);
+    lcd.print(sensors[currentTopItem]);      
+  }
+
+  if (key==3) {
+    transition=1;
+    s_busy=1;
+    k_busy=1;
+    subroutine=3;
+    lcd.clear();
+  }
+
+  }
+
+  if(s_busy==0){
+    if(d_lock==0){
+      for (int i = 0; i < visibleItems; i++) {
+        index = currentTopItem + i;
+        if (index < totalItems) {
+          if(index ==  currentTopItem){
+          lcd.setCursor(0, i);
+          lcd.print("--> " + sensors[index]);           
+          }
+          lcd.setCursor(4, i);
+          lcd.print(sensors[index]);
+        } else {
+          lcd.setCursor(0, i);
+          lcd.print("                ");  
+        }
+      }
+      lcd.setCursor(0, 3);
+      lcd.print("SCROL   ENTER   BACK");
+    }
+  }
 }
 
  key = 0;    // RESETTING KEY.
