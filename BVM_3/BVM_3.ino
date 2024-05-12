@@ -1,7 +1,20 @@
-
+#include <Wire.h>
 #include <LiquidCrystal.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include "MAX30100_PulseOximeter.h"
+#include "Wire.h"
+
 const int rs = 3, en = 4, d4 = 5, d5 = 6, d6 = 7, d7 = 8;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+Adafruit_BME280 bme;  // Create BME280 sensor object
+PulseOximeter pox;
+
+#define BME280_ADDRESS 0x76 // BME280 I2C address
+#define MAX30100_ADDRESS 0x57 // MAX30100 I2C address
+#define SEALEVELPRESSURE_HPA (1013.25) //regular_pressure. needs to be measured
+
 
 int buzzer=2;
 int maintain_power=9;
@@ -70,9 +83,17 @@ int index = 0;
 // Variables to track the current position in the menu list
 int currentTopItem = 0;
 int visibleItems = 3; 
+unsigned long start_time = 0;
+unsigned long end_time = 0;
+unsigned long elapsed_time = 0;
+unsigned long t1 = 0;
+unsigned long t2 = 0;
+float hr = 0.0;
+float spo2 = 0.0;
 
 
 void setup() {
+//   Wire.begin();
    lcd.begin(20, 4);
    pinMode(forward_drive,OUTPUT);
    pinMode(backward_drive,OUTPUT);   
@@ -116,9 +137,30 @@ void setup() {
    delay(500); 
    lcd.setCursor(0, 0);
    lcd.print("STARTING...         ");   
-   delay(500);   
-   lcd.clear();  
-   delay(200);  
+   delay(500); 
+   lcd.clear();
+   lcd.print("No BME280 sensor!");
+   delay(2000);
+
+/*     
+  lcd.setCursor(0, 0);
+  if (!bme.begin(BME280_ADDRESS)) {
+    lcd.print("No BME280 sensor!");
+    delay(500); 
+    while (1);
+  }
+  lcd.print("No BME280 sensor!");
+
+  if (!pox.begin()) {
+    lcd.print("No MAX30100 sensor!");
+    delay(500); 
+    while (1);
+  }
+
+ lcd.print("Sensors initialized!");
+  delay(500);
+  lcd.clear();
+*/
 }
 
 void loop() {
@@ -483,7 +525,7 @@ if(subroutine==5){
     patient= 0;
     volume=100;
     rate = 40;
-    step_limit=25;
+    step_limit=15;
     p_time=500;              
     }  
 
@@ -496,7 +538,7 @@ if(subroutine==5){
     patient=1;
     volume=200;
     rate = 25;
-    step_limit=30;
+    step_limit=20;
     p_time=800;
     }
 
@@ -524,38 +566,12 @@ if(subroutine==6){                                    //   START WINDOW FOR FOR 
  if(k_busy==0){                  //   KEY ASSIGNMENT
   if(key==2){
   transition=1;
-  if(digitalRead(breath_pulse)==1){
-    subroutine=7;
-  }
+  subroutine=7;
   s_busy=1;
   k_busy=1;
-  drive_enable=1;
   home=0;
   run=0;
   lcd.clear();
-  delay(200);
-  d_lock=1;
-  if(digitalRead(breath_pulse)==0){
-    lcd.setCursor(0, 1);
-    lcd.print(" AWAITING A PULSE... ");
-    lcd.setCursor(0, 3);
-    lcd.print("                BACK");
-  }
-  if(digitalRead(breath_pulse)==1){
-      if(patient=="patient"){
-      lcd.setCursor(0, 0);
-      lcd.print("RESUSCITATING_ ADULT");
-      }
-      if(patient=="child"){
-      lcd.setCursor(0, 0);
-      lcd.print("RESUSCITATING_ CHILD");
-      }
-      lcd.setCursor(0, 1);
-      lcd.print("VOLUME: " + String(volume) + "mL");
-      lcd.setCursor(0, 3);
-      lcd.print("        STOP        ");
-      }
-
   }
 
   if(key==1){
@@ -583,7 +599,8 @@ if(subroutine==6){                                    //   START WINDOW FOR FOR 
   subroutine=4;
   }
  }
- if(s_busy==0 and drive_enable==0){       //   MESSAGE TO DISPLAY
+
+ if(s_busy==0){       //   MESSAGE TO DISPLAY
     if(d_lock==0){
     d_lock=1;
     s_lock=1;
@@ -599,23 +616,21 @@ if(subroutine==6){                                    //   START WINDOW FOR FOR 
     }   
 
   }
+
 }
 
 if(subroutine==7){                                    //   MOTOR DRIVING FOR PATIENT DRIVEN MODE.
- while(drive_enable==1 and k_busy==0){
-
-  if(analogRead(A5)>0 and lock_1==0){
-  lock_1=1;
-  keys();
-  }
-
-  if(analogRead(A5)==0 and lock_1==1){
-  lock_1=0;  
-  d_lock=0;
-  }
-
   digitalWrite(forward_drive,0);
   digitalWrite(backward_drive,0);
+  if(k_busy==0){
+    if(key==3){
+      transition=1;
+      k_busy=1;
+      s_busy=1;
+      lcd.clear();
+      subroutine = 6;
+    }
+  }
 
     while(home==0){                                   //   HOMING.
   
@@ -623,10 +638,10 @@ if(subroutine==7){                                    //   MOTOR DRIVING FOR PAT
      if(count_k==2){
      digitalWrite(backward_drive,1);
      }
-     if(count_k==8){
+     if(count_k==30){
      digitalWrite(backward_drive,0);
      }
-     if(count_k > 15){
+     if(count_k > 50){
      count_k=0;
      }
 
@@ -646,17 +661,41 @@ if(subroutine==7){                                    //   MOTOR DRIVING FOR PAT
      delay(40);
      digitalWrite(forward_drive,0);
      delay(p_time);
-     run=1;
      home=1;
-     s_lock=0;
-     count_k=1;
-     step_count=0;
      }
     }
 
-    
-    while(run==1){                                         //   PRESSING BVM.
 
+  if(digitalRead(breath_pulse)==0){
+
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.print(" AWAITING A PULSE... ");
+      lcd.setCursor(0, 3);
+      lcd.print("                BACK");
+  }
+
+  if(digitalRead(breath_pulse)==1){
+    run=1;
+     count_k=1;
+     step_count=0;
+    if(s_lock==0){
+      if(d_lock==0){
+      s_lock=0;
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("  RESUSCITATING...");
+      lcd.setCursor(0, 1);
+      lcd.print("SP02: "+ String(spo2)+ "%");
+      lcd.setCursor(0, 0);
+      lcd.print("Heartrate: "+ String(hr)+ "bpm");
+      }
+    }
+      }
+
+    while(run==1){                                         //   PRESSING BVM.
+      hr = pox.getHeartRate();
+      spo2 = pox.getSpO2();
      
      count_k++;
      if(count_k==2){
@@ -688,21 +727,7 @@ if(subroutine==7){                                    //   MOTOR DRIVING FOR PAT
 
     
     }
-    
 
-
-    if(key==2){                                       //   LOOP TERMINATOR.
-      drive_enable=0;
-      s_busy=1;
-      k_busy=1;
-      transition=1;
-      lcd.clear();
-      forward=0;
-      backward=0;
-      subroutine=6;
-    } 
-    
- }
 }
 
 if(subroutine==8){                                    //   START WINDOW FOR FOR SELF DRIVEN MODE.
@@ -726,24 +751,7 @@ if(subroutine==8){                                    //   START WINDOW FOR FOR 
   subroutine=9;
   s_busy=1;
   k_busy=1;
-  drive_enable=1;
-  home=0;
-  run=0;
   lcd.clear();
-  delay(200);
-  d_lock=1;
-  if(volume==200){
-  lcd.setCursor(0, 0);
-  lcd.print("RESUSCITATING_ ADULT");
-  }
-  if(volume==100){
-  lcd.setCursor(0, 0);
-  lcd.print("RESUSCITATING_ CHILD");
-  }
-  lcd.setCursor(0, 1);
-  lcd.print("VOLUME: " + String(volume) + "mL");
-  lcd.setCursor(0, 3);
-  lcd.print("        STOP        ");
   }
 
   if(key==3){
@@ -769,31 +777,18 @@ if(subroutine==8){                                    //   START WINDOW FOR FOR 
 }
 
 if(subroutine==9){                                    //   MOTOR DRIVING FOR SELF DRIVEN MODE.
- while(drive_enable==1 and k_busy==0){
-
- if(analogRead(A5)>0 and lock_1==0){
-  lock_1=1;
-  keys();
-  }
-
-  if(analogRead(A5)==0 and lock_1==1){
-  lock_1=0;  
-  d_lock=0;
-  } 
-
   digitalWrite(forward_drive,0);
   digitalWrite(backward_drive,0);
 
-    while(home==0){                                   //   HOMING.
-  
+  while(home==0){                                   //   HOMING.
      count_k++;
      if(count_k==2){
      digitalWrite(backward_drive,1);
      }
-     if(count_k==3){
+     if(count_k==8){
      digitalWrite(backward_drive,0);
      }
-     if(count_k > 5){
+     if(count_k > 15){
      count_k=0;
      }
 
@@ -803,11 +798,16 @@ if(subroutine==9){                                    //   MOTOR DRIVING FOR SEL
 
      if(A==1 and B==1){
      P=1;
+     t2 = millis();
+     s_busy=0;
+     d_lock=0;
      }else{
      P=0;
      }
 
      if(P==1 and home==0){
+      d_lock=0;
+     start_time = millis();
      digitalWrite(backward_drive,0);
      digitalWrite(forward_drive,1);
      delay(40);
@@ -847,29 +847,57 @@ if(subroutine==9){                                    //   MOTOR DRIVING FOR SEL
      }     
 
      if(step_count > step_limit){
+     end_time = millis();
+      t1= millis();
      digitalWrite(forward_drive,0);
      count_k=0;
      home=0;
      run=0;
+     s_busy=0;
+     d_lock=0;
      }
 
-    
-    }
 
-    // terminate resuscitation
-    if(key==2){
-      terminate=1;
-      transition=1;
+
+    if(analogRead(A5)>0 and lock_1==0){
+      lock_1=1;
+      keys();
+      }
+
+      if(analogRead(A5)==0 and lock_1==1){
+      lock_1=0;  
+      d_lock=0;
+      } 
+  }
+
+// terminate resuscitation
+if(k_busy==0){
       s_busy=1;
       k_busy=1;
+      if(key==2){
+      terminate=1;
+      transition=1;
       lcd.clear();
     } 
- }
+}
+  
+  if(s_busy==0){
+     if(d_lock==0){
+    d_lock=1;
+      lcd.setCursor(0, 0);
+      lcd.print("backward: " + String(t2 - end_time) + "ms");
+      lcd.setCursor(0, 1);
+      lcd.print("forward: " + String(end_time - start_time) + "ms");
+      lcd.setCursor(0, 3);
+      lcd.print("        STOP        ");      
+     }
+  }
+}
+
   //confirm terminating
-  if(terminate==1){ 
+if(terminate==1){ 
     if(k_busy==0){
       if(key==3){                                       
-        drive_enable=0;
         s_busy=1;
         k_busy=1;
         transition=1;
@@ -898,7 +926,6 @@ if(subroutine==9){                                    //   MOTOR DRIVING FOR SEL
         lcd.print("NO               YES");
       }
     }
-  }
 }
 
 if(subroutine==10){
